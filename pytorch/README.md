@@ -1,4 +1,4 @@
-# FedFM  algorithm on mindspore
+# FedFM  algorithm on Pytorch
 
 ## Introduction
 
