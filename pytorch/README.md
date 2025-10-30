@@ -65,3 +65,6 @@ start_ep_fm
 in the shell file start_ep_fm, we also set a default value for this variable.
 
 You can also change parameters in the shell file.
+
+## Verify your model
+All models will be saved in `./pytorch/models/fedfm` folder, you can test the model using `test_acc.py`, remember change the `MODEL_PATH` to your model path. We offer a model trained with FedFM on CIFAR-10 at [here](https://drive.google.com/file/d/1Xi79p0YvmaSooztwhqGd9NPQK1M3D17F/view?usp=sharing). 
