@@ -7,14 +7,13 @@ start_ep_fm=20
 use_project_head=0 
 fm_avg_anchor=0 \
 dataset='cifar10' 
-device_target='GPU' 
-device_id=1
+device='cuda:7' 
 model='resnet18_7'
 alg='fedfm' 
 lr=0.01 
 epochs=10
 comm_round=100 
-n_parties=10
+n_parties=10 
 partition='noniid'
 beta=0.5 
 dir_path=./logs/${dataset}_${partition}_${model}_beta${beta}_it${epochs}_c${client}_p${sample_fraction}
@@ -22,4 +21,4 @@ dir_path=./logs/${dataset}_${partition}_${model}_beta${beta}_it${epochs}_c${clie
 mkdir ./logs
 mkdir $dir_path
 
-nohup python -u main.py --start_ep_fm $start_ep_fm --comm_round $comm_round --dataset $dataset --device_target $device_target --device_id $device_id --partition $partition --model $model --n_parties $client --sample_fraction $sample_fraction --epochs $epochs --beta $beta > $dir_path/fedavg_${START_TIME}.log 
+nohup python -u main.py --start_ep_fm $start_ep_fm --comm_round $comm_round --dataset $dataset --device $device --partition $partition --model $model --n_parties $client --sample_fraction $sample_fraction --epochs $epochs --beta $beta > $dir_path/fedavg_${START_TIME}.log 

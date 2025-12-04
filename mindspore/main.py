@@ -33,9 +33,9 @@ def get_args():
     parser.add_argument('--alg', type=str, default='fedfm',
                         help='communication strategy: fedavg/fedprox')
     parser.add_argument('--comm_round', type=int, default=100, help='number of maximum communication roun')
-    parser.add_argument('--init_seed', type=int, default=0, help="Random seed")
+    parser.add_argument('--init_seed', type=int, default=1234, help="Random seed")
     parser.add_argument('--dropout_p', type=float, required=False, default=0.0, help="Dropout probability. Default=0.0")
-    parser.add_argument('--datadir', type=str, required=False, default="./datasets-cifar10-bin/cifar-10-batches-bin", help="Data directory")
+    parser.add_argument('--datadir', type=str, required=False, default="./data/datasets-cifar10-bin/cifar-10-batches-bin", help="Data directory")
     parser.add_argument('--reg', type=float, default=1e-5, help="L2 regularization strength")
     parser.add_argument('--logdir', type=str, required=False, default="./logs/", help='Log directory path')
     parser.add_argument('--modeldir', type=str, required=False, default="./models/", help='Model directory path')
@@ -181,7 +181,7 @@ def train_net_fm(net_id, net, train_dataloader, test_dataloader, epochs, lr, arg
             #     print('run l2match')
             #     loss_fm = args.lam_fm * matching_l2(features=representation, labels=targets, centroids=global_centroids)
             # else:
-            print('run matching crosss entropy')
+            # print('run matching crosss entropy')
             loss_fm = 50 * matching_cross_entropy(representation, labels=targets,centroids=global_centroids, tao=args.cg_tau) # lam_fm = 50
         else:
             loss_fm = 0.0
@@ -299,7 +299,7 @@ if __name__ == '__main__':
     logger.info("Partitioning data")
 
 
-    X_train, y_train, X_test, y_test, net_dataidx_map, traindata_cls_counts = partition_data(
+    X_train, y_train, X_test, y_test, net_dataidx_map, traindata_cls_counts, net_data_length = partition_data(
         args.dataset, args.datadir, dataset_logdir, args.partition, args.n_parties, beta=args.beta, n_niid_parties=args.n_niid_parties)
     print('successfully complete partition data')
 
@@ -418,7 +418,7 @@ if __name__ == '__main__':
             # global_centroids = global_centroids.cpu()
 
             if round>=(args.start_ep_fm-1):
-                local_centroids, local_distributions = get_client_centroids_info(global_model, dataloaders=train_local_dls, model_name=args.model, dataset_name=args.dataset, party_list_this_round=party_list_this_round)
+                local_centroids, local_distributions = get_client_centroids_info(global_model, dataloaders=train_local_dls, model_name=args.model, dataset_name=args.dataset, party_list_this_round=party_list_this_round,net_data_length=net_data_length)
                 global_centroids = get_global_centroids(local_centroids, local_distributions, global_centroids, momentum=0.0, equally_average=args.fm_avg_anchor)
             # global_centroids = global_centroids.cuda()
 

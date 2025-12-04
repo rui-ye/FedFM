@@ -86,7 +86,8 @@ class CIFAR10_truncated():
         if self.dataidxs is not None:
             data = data[self.dataidxs]
             target = target[self.dataidxs]
-
+        # print(data[0])
+        
         return data, target
 
     def truncate_channel(self, index):

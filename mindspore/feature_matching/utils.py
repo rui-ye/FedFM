@@ -1,6 +1,6 @@
 # import torch
 import mindspore
-def get_client_centroids_info(model, dataloaders, model_name, dataset_name, party_list_this_round, num_anchor=0):
+def get_client_centroids_info(model, dataloaders, model_name, dataset_name, party_list_this_round, num_anchor=0,net_data_length=[]):
     # return the centroids and num_per_class for each client
     model.set_train(False)
     
@@ -18,7 +18,7 @@ def get_client_centroids_info(model, dataloaders, model_name, dataset_name, part
 
     for net_id in party_list_this_round:
         dataloader = dataloaders[net_id]
-        net_data_length = [5307,3688,4435,5047,5189,3803,5202,4325,8078,4926]
+        print(net_data_length)
         client_rep = mindspore.ops.zeros((net_data_length[net_id],feature_d)) #dataloader.dataset change to dataloader.source
         client_label = mindspore.ops.zeros(net_data_length[net_id]) # the same
         bs = dataloader.batch_size
@@ -28,12 +28,18 @@ def get_client_centroids_info(model, dataloaders, model_name, dataset_name, part
             # images, labels = images.cuda(), labels.cuda()
             # _, representation = model(images, last2_layer=True).detach()
             representation, _, _ = model(images)
-            if ((batch_id+1)*bs)<net_data_length[net_id]: # the same
-                client_rep[batch_id*bs:batch_id*bs+bs]= representation
-                client_label[batch_id*bs:batch_id*bs+bs] = labels
-            else:
-                client_rep[batch_id*bs:] = representation
-                client_label[batch_id*bs:] = labels
+            # if ((batch_id+1)*bs)<net_data_length[net_id]: # the same
+            #     client_rep[batch_id*bs:batch_id*bs+bs]= representation
+            #     client_label[batch_id*bs:batch_id*bs+bs] = labels
+            # else:
+            #     client_rep[batch_id*bs:] = representation
+            #     client_label[batch_id*bs:] = labels
+            real_bs = images.shape[0]  # 用 label 的真实大小，不要相信 MindSpore 的 batch_size
+
+            start = batch_id * bs
+            end = start + real_bs
+            client_rep[start:end] = representation[:real_bs]
+            client_label[start:end] = labels
 
         client_centroids, client_distribution = cal_center(rep=client_rep, label=client_label, num_classes=num_classes)
         ## for test

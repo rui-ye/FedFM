@@ -12,9 +12,9 @@ def get_client_centroids_info(model, dataloaders, model_name, dataset_name, part
     elif model_name.startswith('resnet18'):
         feature_d = 512
 
-    if dataset_name in ['cifar10', 'cinic10']:
+    if dataset_name in ['Cifar10', 'cinic10', "cifar10"]:
         num_classes=10
-    elif dataset_name=='cifar100':
+    elif dataset_name=='Cifar100' or dataset_name=='cifar100':
         num_classes=100
     elif dataset_name=='tinyimagenet':
         num_classes=200
@@ -26,12 +26,12 @@ def get_client_centroids_info(model, dataloaders, model_name, dataset_name, part
     for net_id in party_list_this_round:
         dataloader = dataloaders[net_id]
         client_rep = paddle.zeros((len(dataloader.dataset),feature_d))
-        client_label = paddle.zeros([len(dataloader.dataset)],dtype='int64')
+        client_label = paddle.zeros(len(dataloader.dataset))
         bs = dataloader.batch_size
 
         with paddle.no_grad():
             for batch_id, (images, labels) in enumerate(dataloader):
-                images, labels = paddle.to_tensor(images), paddle.to_tensor(labels,dtype='int64')
+                images, labels = images.cuda(), labels.cuda()
                 # _, representation = model(images, last2_layer=True).detach()
                 representation, _, _ = model(images)
                 if ((batch_id+1)*bs)<len(dataloader.dataset):
@@ -53,10 +53,10 @@ def get_client_centroids_info(model, dataloaders, model_name, dataset_name, part
 def cal_center(rep, label, num_classes):
     # calculation for the 'get_client_centroids_info' function
     center_of_class = paddle.zeros((num_classes, rep.shape[1]))
-    distribution_of_class = paddle.zeros([num_classes],dtype='int64')
+    distribution_of_class = paddle.zeros(num_classes)
     for class_id in range(num_classes):
         if (label==class_id).sum()!=0:
-            center_of_class[class_id,:] = rep[label==class_id].mean(axis=0)# dim=0
+            center_of_class[class_id,:] = rep[label==class_id].mean(dim=0)
             distribution_of_class[class_id] = paddle.sum(label==class_id)
 
     return center_of_class, distribution_of_class
@@ -92,3 +92,56 @@ def get_global_centroids(local_centroids, local_distributions, pre_global_centro
         global_centroids = momentum * pre_global_centroids + (1-momentum) * global_centroids
 
     return global_centroids
+
+def personalized_get_client_centroids_info(nets_this_round, dataloaders, model_name, dataset_name, party_list_this_round, num_anchor=0):
+    # return the centroids and num_per_class for each client
+    local_centroids = []
+    local_distributions = []
+
+    if model_name=='resnet50' or model_name=='resnet50_7':
+        feature_d = 2048
+    elif model_name=='resnet18' or model_name=='resnet18_7':
+        feature_d = 512
+
+    if dataset_name=='Cifar10':
+        num_classes=10
+    elif dataset_name=='Cifar100':
+        num_classes=100
+    elif dataset_name=='tinyimagenet':
+        num_classes=200
+    elif dataset_name=='ham10000':
+        num_classes=7
+    elif dataset_name=='wiki':
+        num_classes=num_anchor
+
+    for net_id in party_list_this_round:
+        model = nets_this_round[net_id]
+        model.cuda()
+        model.eval()
+
+        dataloader = dataloaders[net_id]
+        client_rep = paddle.zeros((len(dataloader.dataset),feature_d))
+        client_label = paddle.zeros(len(dataloader.dataset))
+        bs = dataloader.batch_size
+
+        with paddle.no_grad():
+            for batch_id, (images, labels) in enumerate(dataloader):
+                images, labels = images.cuda(), labels.cuda()
+                # _, representation = model(images, last2_layer=True).detach()
+                representation, _, _ = model(images)
+                if ((batch_id+1)*bs)<len(dataloader.dataset):
+                    client_rep[batch_id*bs:batch_id*bs+bs]= representation
+                    client_label[batch_id*bs:batch_id*bs+bs] = labels
+                else:
+                    client_rep[batch_id*bs:] = representation
+                    client_label[batch_id*bs:] = labels
+
+        client_centroids, client_distribution = cal_center(rep=client_rep, label=client_label, num_classes=num_classes)
+
+        local_centroids.append(client_centroids)
+        local_distributions.append(client_distribution)
+        
+        model.train()
+        model.to('cpu')
+
+    return local_centroids, local_distributions

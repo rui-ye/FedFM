@@ -1,3 +1,23 @@
+
+mindspore/data/
+mindspore/logs/
+mindspore/rank_0/
+mindspore/models/
+
+paddle-new/data/
+paddle-new/logs/
+paddle-new/models/
+
+pytorch/data/
+pytorch/logs/
+pytorch/models/
+
+paddlepaddle/
+
+tensorflow/data/
+tensorflow/logs/
+tensorflow/models/
+
 # Byte-compiled / optimized / DLL files
 **/__pycache__/
 __pycache__/

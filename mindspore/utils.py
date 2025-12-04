@@ -111,9 +111,13 @@ def partition_data(dataset, datadir, logdir, partition, n_parties, beta=0.4, n_n
         X_train, y_train, X_test, y_test = load_cifar10_data(datadir)
     elif dataset == 'cifar100':
         X_train, y_train, X_test, y_test = load_cifar100_data(datadir)
-
+    net_data_length = []
     n_train = y_train.shape[0]
-
+    print(X_train[0])
+    print("y_train shape:", y_train.shape)
+    print("unique labels:", np.unique(y_train))
+    print("label counts:", {int(k): int((y_train==k).sum()) for k in np.unique(y_train)})
+    print("sum:", sum((y_train==k).sum() for k in np.unique(y_train)))
     if partition == "homo" or partition == "iid":
         idxs = np.random.permutation(n_train)
         batch_idxs = np.array_split(idxs, n_parties)
@@ -134,27 +138,58 @@ def partition_data(dataset, datadir, logdir, partition, n_parties, beta=0.4, n_n
         N = y_train.shape[0]
         net_dataidx_map = {}
 
-        while min_size < min_require_size:
+        # while min_size < min_require_size:
+        #     idx_batch = [[] for _ in range(n_parties)]
+        #     for k in range(K):
+        #         idx_k = np.where(y_train == k)[0]
+        #         np.random.shuffle(idx_k)
+        #         proportions = np.random.dirichlet(np.repeat(beta, n_parties))
+        #         proportions = np.array([p * (len(idx_j) < N / n_parties) for p, idx_j in zip(proportions, idx_batch)])
+        #         proportions = proportions / proportions.sum()
+        #         proportions = (np.cumsum(proportions) * len(idx_k)).astype(int)[:-1]
+        #         idx_batch = [idx_j + idx.tolist() for idx_j, idx in zip(idx_batch, np.split(idx_k, proportions))]
+        #         min_size = min([len(idx_j) for idx_j in idx_batch])
+        #         # if K == 2 and n_parties <= 10:
+        #         #     if np.min(proportions) < 200:
+        #         #         min_size = 0
+        #         #         break
+
+
+        # --- 修复逻辑：必须完整处理完 K 个类别后再检查 min_size ---
+        while True:
             idx_batch = [[] for _ in range(n_parties)]
+
             for k in range(K):
                 idx_k = np.where(y_train == k)[0]
                 np.random.shuffle(idx_k)
+
+                # dirichlet
                 proportions = np.random.dirichlet(np.repeat(beta, n_parties))
-                proportions = np.array([p * (len(idx_j) < N / n_parties) for p, idx_j in zip(proportions, idx_batch)])
+
+                # 均衡：避免一个 client 太满
+                proportions = np.array([p * (len(idx_j) < N / n_parties) 
+                                        for p, idx_j in zip(proportions, idx_batch)])
                 proportions = proportions / proportions.sum()
-                proportions = (np.cumsum(proportions) * len(idx_k)).astype(int)[:-1]
-                idx_batch = [idx_j + idx.tolist() for idx_j, idx in zip(idx_batch, np.split(idx_k, proportions))]
-                min_size = min([len(idx_j) for idx_j in idx_batch])
-                # if K == 2 and n_parties <= 10:
-                #     if np.min(proportions) < 200:
-                #         min_size = 0
-                #         break
+
+                # 按比例切分当前类别
+                split_points = (np.cumsum(proportions) * len(idx_k)).astype(int)[:-1]
+                splits = np.split(idx_k, split_points)
+
+                # 放入对应 client
+                idx_batch = [idx_j + s.tolist() for idx_j, s in zip(idx_batch, splits)]
+
+            # --- 完成 K 类全部处理后再检查 ---
+            min_size = min([len(idx_j) for idx_j in idx_batch])
+            if min_size >= min_require_size:
+                break
 
         for j in range(n_parties):
             np.random.shuffle(idx_batch[j])
             net_dataidx_map[j] = idx_batch[j]
             print(len(net_dataidx_map[j]))
+            net_data_length.append(len(net_dataidx_map[j]))
         class_dis = np.zeros((n_parties, K))
+        print("Total:", sum(len(v) for v in net_dataidx_map.values()))
 
         for j in range(n_parties):
             for m in range(K):
@@ -162,7 +197,7 @@ def partition_data(dataset, datadir, logdir, partition, n_parties, beta=0.4, n_n
         print(class_dis)
 
     traindata_cls_counts = record_net_data_stats(y_train, net_dataidx_map, logdir)
-    return (X_train, y_train, X_test, y_test, net_dataidx_map, traindata_cls_counts)
+    return X_train, y_train, X_test, y_test, net_dataidx_map, traindata_cls_counts, net_data_length
 
 def save_features(model, dataloaders, save_dir, round):
     was_training = False
